@@ -46,6 +46,7 @@ func NewClient(addr string, db uint, authpassword string, connectionTimeout time
 		maxActive:         maxActive,
 		dialTimeout:       connectionTimeout * 2,
 		auth:              authpassword,
+		db:                int(db),
 		connectionTimeout: connectionTimeout,
 	}
 
