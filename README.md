@@ -104,10 +104,12 @@ The `average` and the `burst` are the number of allowed connection per second, t
 | breakerThreshold            | number of failed connection before pausing Redis   | 3          |
 | breakerReattempt            | nb seconds before attempting to reconnect to Redis | 15         |
 | redisConnectionTimeout      | redis connection timeout (in seconds)              | 2          |
+| whitelistIPs                | list of IP addresses or CIDR ranges that bypass rate limiting |            |
 
 Notes:
 - for more information about sourceCriteron check the Traefik [ratelimit](https://doc.traefik.io/traefik/middlewares/http/ratelimit/) page
 - regarding redispassword, if you dont want to set it in clear text in the traefik configuration, you can specify a variable name starting with '$'. For example `$REDIS_PASSWORD` will use the `REDIS_PASSWORD` environment variable
+- whitelistIPs allows you to specify IP addresses or CIDR ranges that will completely bypass rate limiting. This is useful when you have groups of users sharing the same IP address. The IP extraction for whitelist checking uses the same IP strategy as defined in sourceCriterion.ipStrategy, or falls back to RemoteAddr if not specified.
 
 A full example would be
 
@@ -132,6 +134,10 @@ http:
           redisAddress: redis:6379
           redisPassword: $REDIS_AUTH_PASSWORD
           redisConnectionTimeout: 2
+          whitelistIPs:
+            - "192.168.1.1"
+            - "10.0.0.0/8"
+            - "172.16.0.0/12"
 ```
 
 ## Circuit-breaker
