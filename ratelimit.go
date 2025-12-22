@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/nzin/traefik-cluster-ratelimit/internal/ip"
 	"github.com/nzin/traefik-cluster-ratelimit/internal/redis"
 	"github.com/nzin/traefik-cluster-ratelimit/internal/utils"
 )
@@ -48,6 +49,9 @@ type Config struct {
 	// ConnectionTimeout is the read and write connection timeout to redis.
 	// By default it is 2 seconds
 	RedisConnectionTimeout int64 `json:"redisConnectionTimeout,omitempty" yaml:"redisConnectionTimeout,omitempty"`
+	// WhitelistIPs is a list of IP addresses or CIDR ranges that will bypass rate limiting.
+	// If an IP matches any entry in this list, the rate limit check is skipped entirely.
+	WhitelistIPs []string `json:"whitelistIPs,omitempty" yaml:"whitelistIPs,omitempty"`
 }
 
 // CreateConfig creates the default plugin configuration.
@@ -56,13 +60,15 @@ func CreateConfig() *Config {
 }
 
 type ClusterRateLimit struct {
-	next          http.Handler
-	limiter       *Limiter
-	name          string
-	average       int64
-	burst         int64
-	period        int64
-	sourceMatcher utils.SourceExtractor
+	next             http.Handler
+	limiter          *Limiter
+	name             string
+	average          int64
+	burst            int64
+	period           int64
+	sourceMatcher    utils.SourceExtractor
+	whitelistChecker *ip.Checker
+	ipStrategy       ip.Strategy
 }
 
 // New created a new ClusterRateLimit plugin.
@@ -100,6 +106,26 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 		return nil, err
 	}
 
+	// Initialize whitelist checker if whitelistIPs is provided
+	var whitelistChecker *ip.Checker
+	if len(config.WhitelistIPs) > 0 {
+		whitelistChecker, err = ip.NewChecker(config.WhitelistIPs)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create IP whitelist checker: %v", err)
+		}
+	}
+
+	// Initialize IP strategy for whitelist checking
+	var ipStrategy ip.Strategy
+	if config.SourceCriterion != nil && config.SourceCriterion.IPStrategy != nil {
+		ipStrategy, err = config.SourceCriterion.IPStrategy.Get()
+		if err != nil {
+			return nil, fmt.Errorf("unable to create IP strategy: %v", err)
+		}
+	} else {
+		ipStrategy = &ip.RemoteAddrStrategy{}
+	}
+
 	client, err := redis.NewClient(
 		config.RedisAddress,
 		config.RedisDB,
@@ -116,13 +142,15 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 	// }
 
 	return &ClusterRateLimit{
-		next:          next,
-		limiter:       NewLimiter(client, name, config.BreakerThreshold, config.BreakerReattempt),
-		name:          name,
-		average:       config.Average,
-		burst:         config.Burst,
-		period:        config.Period,
-		sourceMatcher: sourceMatcher,
+		next:             next,
+		limiter:          NewLimiter(client, name, config.BreakerThreshold, config.BreakerReattempt),
+		name:             name,
+		average:          config.Average,
+		burst:            config.Burst,
+		period:           config.Period,
+		sourceMatcher:    sourceMatcher,
+		whitelistChecker: whitelistChecker,
+		ipStrategy:       ipStrategy,
 	}, nil
 }
 
@@ -133,6 +161,18 @@ func (rl *ClusterRateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 	if rl.average == 0 {
 		rl.next.ServeHTTP(rw, req)
 		return
+	}
+
+	// Check if IP is whitelisted - if so, bypass rate limiting entirely
+	if rl.whitelistChecker != nil {
+		clientIP := rl.ipStrategy.GetIP(req)
+		if clientIP != "" {
+			contains, err := rl.whitelistChecker.Contains(clientIP)
+			if err == nil && contains {
+				rl.next.ServeHTTP(rw, req)
+				return
+			}
+		}
 	}
 
 	source, _, err := rl.sourceMatcher.Extract(req)
