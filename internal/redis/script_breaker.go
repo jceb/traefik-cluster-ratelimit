@@ -2,6 +2,7 @@ package redis
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -30,14 +31,17 @@ func (swb *ScriptWithBreaker) Run(keys []string, args ...interface{}) (interface
 		if err != nil {
 			swb.errorCount++
 			if swb.errorCount == swb.breakerThreshold {
+				fmt.Fprintf(os.Stderr, "traefik-cluster-ratelimit: reattempting to connect to redis in %ds\n", swb.reattemptPeriod)
 				swb.nextAttempt = time.Now().Add(time.Duration(swb.reattemptPeriod) * time.Second)
 			}
 		} else {
+			fmt.Fprint(os.Stderr, "traefik-cluster-ratelimit: redis connected\n")
 			swb.errorCount = 0
 		}
 
 		return res, err
 	} else {
+		fmt.Fprint(os.Stderr, "traefik-cluster-ratelimit: breaker opened\n")
 		return nil, fmt.Errorf("breaker opened")
 	}
 }
