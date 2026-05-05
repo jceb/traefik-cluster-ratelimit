@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/nzin/traefik-cluster-ratelimit/internal/ip"
+	"github.com/jceb/traefik-cluster-ratelimit/internal/ip"
 )
 
 // IPStrategy holds the IP strategy configuration used by Traefik to determine the client IP.
