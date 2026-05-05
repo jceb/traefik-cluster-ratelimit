@@ -10,12 +10,12 @@ entryPoints:
 # Providers define where Traefik finds its dynamic configuration.
 providers:
   file:
-    filename: "/etc/traefik/dynamic.yaml"  # Path to your dynamic configuration file
+    filename: "/etc/traefik/dynamic.yaml" # Path to your dynamic configuration file
 
 # API and dashboard configuration.
 api:
   dashboard: true
-  insecure: true  # Only use insecure in a development environment. For production, use secure settings.
+  insecure: true # Only use insecure in a development environment. For production, use secure settings.
 
 # Log settings
 log:
@@ -36,4 +36,4 @@ log:
 experimental:
   localPlugins:
     cluster-ratelimit:
-      moduleName: github.com/nzin/traefik-cluster-ratelimit
+      moduleName: github.com/jceb/traefik-cluster-ratelimit
