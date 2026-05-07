@@ -1,5 +1,8 @@
 # traefik-cluster-ratelimit
 
+Fork of <https://github.com/nzin/traefik-cluster-ratelimit> with added logging
+and vendoring of dependencies.
+
 Traefik comes with a default
 [rate limiter](https://doc.traefik.io/traefik/middlewares/http/ratelimit/)
 middleware, but the rate limiter doesn't share a state if you are using several
