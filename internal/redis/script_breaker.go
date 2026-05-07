@@ -35,13 +35,13 @@ func (swb *ScriptWithBreaker) Run(keys []string, args ...interface{}) (interface
 				swb.nextAttempt = time.Now().Add(time.Duration(swb.reattemptPeriod) * time.Second)
 			}
 		} else {
-			fmt.Fprint(os.Stderr, "traefik-cluster-ratelimit: redis connected\n")
+			fmt.Fprintln(os.Stderr, "traefik-cluster-ratelimit: redis connected")
 			swb.errorCount = 0
 		}
 
 		return res, err
 	} else {
-		fmt.Fprint(os.Stderr, "traefik-cluster-ratelimit: breaker opened\n")
+		fmt.Fprintln(os.Stderr, "traefik-cluster-ratelimit: breaker opened")
 		return nil, fmt.Errorf("breaker opened")
 	}
 }

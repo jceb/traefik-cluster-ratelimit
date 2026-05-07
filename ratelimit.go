@@ -177,7 +177,7 @@ func (rl *ClusterRateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 
 	source, _, err := rl.sourceMatcher.Extract(req)
 	if err != nil {
-		//logger.Error().Err(err).Msg("Could not extract source of request")
+		// logger.Error().Err(err).Msg("Could not extract source of request")
 		http.Error(rw, "could not extract source of request", http.StatusInternalServerError)
 		return
 	}
@@ -191,6 +191,7 @@ func (rl *ClusterRateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 		rl.next.ServeHTTP(rw, req)
 	} else {
 		if res.Allowed <= 0 {
+			fmt.Fprintf(os.Stderr, "traefik-cluster-ratelimit: IP address limited: %s\n", source)
 			retryAfter := int64(res.RetryAfter/time.Second) + 1
 			rw.Header().Set("retry-after", fmt.Sprintf("%d", retryAfter))
 			http.Error(rw, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
